@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+
+<launch>
+
+  <arg name="out_dir"/>
+  <node pkg="but_imu_odom" type="velodyne_imu_bag_parser" name="velodyne_imu_bag_parser" output="screen">
+    <param name="out_dir" value="$(arg out_dir)" />
+  </node>
+  
+  <arg name="bag_file"/>
+  <node pkg="rosbag" type="play" name="player" args="$(arg bag_file)" required="true"/>
+
+</launch>

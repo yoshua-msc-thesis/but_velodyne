@@ -45,6 +45,8 @@ using namespace ros;
 using namespace tf;
 using namespace but_velodyne;
 
+const string NODE_NAME = "velodyne_imu_bag_parser";
+
 class Parser {
 private:
   int cloud_counter;
@@ -67,7 +69,8 @@ public:
     VelodynePointCloud cloud;
     fromROSMsg(*msg, cloud);
     cloud.setImageLikeAxisFromKitti();
-    string filename = KittiUtils::getKittiFrameName(cloud_counter++, ".pcd");
+    string filename = out_dir + "/" + KittiUtils::getKittiFrameName(cloud_counter++, ".pcd");
+    ROS_INFO_STREAM("Saving " << filename);
     io::savePCDFileBinary(filename, cloud);
 
     tf::StampedTransform transform;
@@ -85,11 +88,11 @@ public:
 };
 
 int main(int argc, char** argv) {
-  ros::init(argc, argv, "velodyne_imu_bag_parser");
+  ros::init(argc, argv, NODE_NAME);
   NodeHandle nh;
 
   string out_dir(".");
-  nh.getParam("out_dir", out_dir);
+  nh.getParam(NODE_NAME + "/out_dir", out_dir);
   Parser parser(out_dir);
 
   ros::Subscriber pcd_sub = nh.subscribe<sensor_msgs::PointCloud2>("/velodyne_points", 10, &Parser::callback, &parser);
