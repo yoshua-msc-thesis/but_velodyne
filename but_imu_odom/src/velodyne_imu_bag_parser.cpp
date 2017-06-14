@@ -56,9 +56,10 @@ private:
   ofstream out_poses;
 
 public:
-  string out_dir;
+  string out_dir, frame_id;
 
-  Parser(const string &out_dir_) :
+  Parser(const string &frame_id_, const string &out_dir_) :
+    frame_id(frame_id_),
     out_dir(out_dir_),
     cloud_counter(0),
     is_first(true),
@@ -74,8 +75,8 @@ public:
     io::savePCDFileBinary(filename, cloud);
 
     tf::StampedTransform transform;
-    tf_listener.waitForTransform("velodyne", "imu_base", ros::Time::now(), ros::Duration(0.01));
-    tf_listener.lookupTransform("velodyne", "imu_base", ros::Time(0), transform);
+    tf_listener.waitForTransform(frame_id, "imu_base", ros::Time::now(), ros::Duration(0.01));
+    tf_listener.lookupTransform(frame_id, "imu_base", ros::Time(0), transform);
     if(is_first) {
       first_transform = transform;
       is_first = false;
@@ -88,14 +89,18 @@ public:
 };
 
 int main(int argc, char** argv) {
-  ros::init(argc, argv, NODE_NAME);
-  NodeHandle nh;
+  ros::init(argc, argv, NODE_NAME, ros::init_options::AnonymousName);
+  NodeHandle nh("~");
 
   string out_dir(".");
-  nh.getParam(NODE_NAME + "/out_dir", out_dir);
-  Parser parser(out_dir);
+  nh.getParam("out_dir", out_dir);
+  string topic("/velodyne_points");
+  nh.getParam("topic_name", topic);
+  string frame_id("velodyne");
+  nh.getParam("frame_id", frame_id);
 
-  ros::Subscriber pcd_sub = nh.subscribe<sensor_msgs::PointCloud2>("/velodyne_points", 10, &Parser::callback, &parser);
+  Parser parser(frame_id, out_dir);
+  ros::Subscriber pcd_sub = nh.subscribe<sensor_msgs::PointCloud2>(topic, 10, &Parser::callback, &parser);
   spin();
 
   return EXIT_SUCCESS;
