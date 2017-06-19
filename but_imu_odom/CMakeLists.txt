@@ -46,3 +46,6 @@ target_link_libraries(imu_odom ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 
 add_executable(velodyne_imu_bag_parser src/velodyne_imu_bag_parser.cpp)
 target_link_libraries(velodyne_imu_bag_parser ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${ButVELODYNE_LIBRARIES})
+
+add_executable(velodyne_imu_bag_multi_parser src/velodyne_imu_bag_multi_parser.cpp)
+target_link_libraries(velodyne_imu_bag_multi_parser ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${ButVELODYNE_LIBRARIES})

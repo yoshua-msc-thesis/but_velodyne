@@ -28,11 +28,15 @@
 
 #include <ros/ros.h>
 #include <pcl_ros/point_cloud.h>
+#include <message_filters/subscriber.h>
+#include <message_filters/synchronizer.h>
+#include <message_filters/sync_policies/approximate_time.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <tf/tf.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_listener.h>
 #include <tf_conversions/tf_eigen.h>
+
 #include <pcl/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
 
@@ -56,35 +60,50 @@ private:
   ofstream out_poses;
 
 public:
-  string out_dir, frame_id;
+  string out_dir, frame_id_1, frame_id_2;
 
-  Parser(const string &frame_id_, const string &out_dir_) :
-    frame_id(frame_id_),
+  Parser(const string &frame_id_1_, const string &frame_id_2_, const string &out_dir_) :
+    frame_id_1(frame_id_1_),
+    frame_id_2(frame_id_2_),
     out_dir(out_dir_),
     cloud_counter(0),
     is_first(true),
     out_poses((out_dir_ + "/poses.txt").c_str(), ios_base::out) {
   }
 
-  void callback(const sensor_msgs::PointCloud2ConstPtr& msg) {
-    VelodynePointCloud cloud;
-    fromROSMsg(*msg, cloud);
-    cloud.setImageLikeAxisFromKitti();
-    string filename = out_dir + "/" + KittiUtils::getKittiFrameName(cloud_counter++, ".pcd");
-    ROS_INFO_STREAM("Saving " << filename);
-    io::savePCDFileBinary(filename, cloud);
-
+  void findSaveTransform(const Eigen::Matrix4f &axis_correction) {
     tf::StampedTransform transform;
-    tf_listener.waitForTransform(frame_id, "imu_base", ros::Time(0), ros::Duration(0.01));
-    tf_listener.lookupTransform(frame_id, "imu_base", ros::Time(0), transform);
+    tf_listener.waitForTransform(frame_id_1, "imu_base", ros::Time(0), ros::Duration(0.01));
+    tf_listener.lookupTransform(frame_id_1, "imu_base", ros::Time(0), transform);
     if(is_first) {
       first_transform = transform;
       is_first = false;
     }
     Eigen::Affine3d t;
     tf::transformTFToEigen(first_transform.inverse()*transform, t);
-    Eigen::Matrix4f t_float = cloud.getAxisCorrection() * t.cast<float>().matrix() * cloud.getAxisCorrection().inverse();
+    Eigen::Matrix4f t_float = axis_correction * t.cast<float>().matrix() * axis_correction.inverse();
     KittiUtils::save_kitti_pose(Eigen::Affine3f(t_float), out_poses);
+  }
+
+  void saveCloud(const VelodynePointCloud &cloud, int sensor_id) {
+    stringstream filename;
+    filename << out_dir << "/" << KittiUtils::getKittiFrameName(cloud_counter, ".") << sensor_id << ".pcd";
+    ROS_INFO_STREAM("Saving " << filename.str());
+    io::savePCDFileBinary(filename.str(), cloud);
+  }
+
+  void callback(const sensor_msgs::PointCloud2ConstPtr& msg1, const sensor_msgs::PointCloud2ConstPtr& msg2) {
+    VelodynePointCloud cloud1, cloud2;
+    fromROSMsg(*msg1, cloud1);
+    fromROSMsg(*msg2, cloud2);
+    cloud1.setImageLikeAxisFromKitti();
+    cloud2.setImageLikeAxisFromKitti();
+
+    saveCloud(cloud1, 1);
+    saveCloud(cloud2, 2);
+    cloud_counter++;
+
+    findSaveTransform(cloud1.getAxisCorrection());
   }
 };
 
@@ -94,13 +113,24 @@ int main(int argc, char** argv) {
 
   string out_dir(".");
   nh.getParam("out_dir", out_dir);
-  string topic("/velodyne_points");
-  nh.getParam("topic_name", topic);
-  string frame_id("velodyne");
-  nh.getParam("frame_id", frame_id);
+  string topic_1("/velodyne_points");
+  nh.getParam("topic_name", topic_1);
+  string topic_2("/velodyne2/velodyne_points");
+  nh.getParam("topic_name", topic_2);
+  string frame_id_1("velodyne");
+  nh.getParam("frame_id", frame_id_1);
+  string frame_id_2("velodyne2");
+  nh.getParam("frame_id", frame_id_2);
 
-  Parser parser(frame_id, out_dir);
-  ros::Subscriber pcd_sub = nh.subscribe<sensor_msgs::PointCloud2>(topic, 10, &Parser::callback, &parser);
+  message_filters::Subscriber<sensor_msgs::PointCloud2> velodyne1_sub(nh, topic_1, 10);
+  message_filters::Subscriber<sensor_msgs::PointCloud2> velodyne2_sub(nh, topic_2, 10);
+
+  Parser parser(frame_id_1, frame_id_2, out_dir);
+
+  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::PointCloud2, sensor_msgs::PointCloud2> MySyncPolicy;
+  message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), velodyne1_sub, velodyne2_sub);
+  sync.registerCallback(boost::bind(&Parser::callback, &parser, _1, _2));
+
   spin();
 
   return EXIT_SUCCESS;
