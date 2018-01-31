@@ -64,11 +64,6 @@ CollarLineOdomNode::CollarLineOdomNode(ros::NodeHandle& private_nh) :
     private_nh.param("lines_per_bin_generated", pipeline_parameters.linesPerCellGenerated, pipeline_parameters.linesPerCellGenerated);
     //"How many collar lines are preserved per single polar bin after filtering"
     private_nh.param("lines_per_bin_preserved", pipeline_parameters.linesPerCellPreserved, pipeline_parameters.linesPerCellPreserved);
-    //"Discard part of the generated lines based on the vertical population of polar bin (on/off). Possible values: ANGLE_WITH_GROUND|NONE"
-    int preservedFactorOfLinesBy;
-    private_nh.param("lines_preserved_factor_by",
-            preservedFactorOfLinesBy, static_cast<int>(pipeline_parameters.preservedFactorOfLinesBy));
-    pipeline_parameters.preservedFactorOfLinesBy = static_cast<but_velodyne::LineCloud::PreservedFactorBy>(preservedFactorOfLinesBy);
     //"Minimal number of registration iterations (similar to ICP iterations)"
     private_nh.param("min_iterations", pipeline_parameters.minIterations, pipeline_parameters.minIterations);
     //"Maximal number of registration iterations"
@@ -119,7 +114,7 @@ CollarLineOdomNode::CollarLineOdomNode(ros::NodeHandle& private_nh) :
 
 void CollarLineOdomNode::msgCallback(const sensor_msgs::PointCloud2::ConstPtr& input_cloud) {
     cv::Mat covariance;
-    pcl::fromROSMsg<velodyne_pointcloud::PointXYZIR>(*input_cloud, *pcl_input_cloud_);
+    pcl::fromROSMsg<velodyne_pointcloud::VelodynePoint>(*input_cloud, *pcl_input_cloud_);
     Eigen::Matrix4f t = registration_->runRegistration(*boost::dynamic_pointer_cast<but_velodyne::VelodynePointCloud>(pcl_input_cloud_), covariance);
     cumulated_transformation_ = cumulated_transformation_ * t;
     nav_msgs::Odometry odom_msg;
@@ -130,7 +125,7 @@ void CollarLineOdomNode::msgCallback(const sensor_msgs::PointCloud2::ConstPtr& i
     if (b_save_file_) {
         std::stringstream ss;
         ss << boost::filesystem::current_path().string() << "/points_" << std::setfill('0') << std::setw(8) << msg_count_ << ".pcd";
-        pcl::io::savePCDFileBinary<velodyne_pointcloud::PointXYZIR>(ss.str(), *pcl_input_cloud_);
+        pcl::io::savePCDFileBinary<velodyne_pointcloud::VelodynePoint>(ss.str(), *pcl_input_cloud_);
         std::ofstream ofs(std::string(boost::filesystem::current_path().string() + "/estimated.poses").c_str(), std::ios::app);
         Eigen::Matrix4f::Scalar *pose = cumulated_transformation_.data();
         ofs       << pose[0] << " " << pose[4] << " " << pose[8]  << " " << pose[12] <<

@@ -42,7 +42,6 @@
 
 
 // Types of point and cloud to work with
-typedef velodyne_pointcloud::PointXYZIR VPoint;
 typedef pcl::PointCloud<VPoint> VPointCloud;
 
 // Instantiate template for transforming a VPointCloud

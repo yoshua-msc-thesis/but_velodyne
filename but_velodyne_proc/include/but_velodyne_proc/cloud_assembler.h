@@ -56,7 +56,6 @@
 
 
 // Types of point and cloud to work with
-typedef velodyne_pointcloud::PointXYZIR VPoint;
 typedef pcl::PointXYZ TPoint;
 typedef pcl::PointCloud<VPoint> VPointCloud;
 typedef pcl::PointCloud<TPoint> TPointCloud;
