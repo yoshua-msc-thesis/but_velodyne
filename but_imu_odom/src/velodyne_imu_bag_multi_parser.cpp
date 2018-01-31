@@ -39,6 +39,7 @@
 
 #include <pcl/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <pcl/filters/filter.h>
 
 #include <but_velodyne/VelodynePointCloud.h>
 #include <but_velodyne/KittiUtils.h>
@@ -57,7 +58,8 @@ private:
   bool is_first;
   tf::TransformListener tf_listener;
   StampedTransform first_transform;
-  ofstream out_poses;
+  ofstream out_poses, out_times;
+  static const int MIN_REQ_POINTS = 1000;
 
 public:
   string out_dir, frame_id_1, frame_id_2;
@@ -68,7 +70,8 @@ public:
     out_dir(out_dir_),
     cloud_counter(0),
     is_first(true),
-    out_poses((out_dir_ + "/poses.txt").c_str(), ios_base::out) {
+    out_poses((out_dir_ + "/poses.txt").c_str(), ios_base::out),
+    out_times((out_dir_ + "/times.txt").c_str(), ios_base::out) {
   }
 
   void findSaveTransform(const Eigen::Matrix4f &axis_correction) {
@@ -96,14 +99,21 @@ public:
     VelodynePointCloud cloud1, cloud2;
     fromROSMsg(*msg1, cloud1);
     fromROSMsg(*msg2, cloud2);
-    cloud1.setImageLikeAxisFromKitti();
-    cloud2.setImageLikeAxisFromKitti();
 
-    saveCloud(cloud1, 1);
-    saveCloud(cloud2, 2);
-    cloud_counter++;
+    cloud1.removeNanPoints();
+    cloud2.removeNanPoints();
 
-    findSaveTransform(cloud1.getAxisCorrection());
+    if(cloud1.size() > MIN_REQ_POINTS && cloud2.size() > MIN_REQ_POINTS) {
+      cloud1.setImageLikeAxisFromKitti();
+      cloud2.setImageLikeAxisFromKitti();
+
+      saveCloud(cloud1, 1);
+      saveCloud(cloud2, 2);
+      cloud_counter++;
+
+      findSaveTransform(cloud1.getAxisCorrection());
+      out_times << fixed << msg1->header.stamp.toSec() << " " << fixed << msg2->header.stamp.toSec() << endl;
+    }
   }
 };
 
