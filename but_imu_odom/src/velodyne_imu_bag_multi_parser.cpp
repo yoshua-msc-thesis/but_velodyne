@@ -76,8 +76,8 @@ public:
 
   void findSaveTransform(const Eigen::Matrix4f &axis_correction) {
     tf::StampedTransform transform;
-    tf_listener.waitForTransform(frame_id_1, "imu_base", ros::Time(0), ros::Duration(0.01));
-    tf_listener.lookupTransform(frame_id_1, "imu_base", ros::Time(0), transform);
+    tf_listener.waitForTransform(frame_id_1, "velodyne_base", ros::Time(0), ros::Duration(0.01));
+    tf_listener.lookupTransform(frame_id_1, "velodyne_base", ros::Time(0), transform);
     if(is_first) {
       first_transform = transform;
       is_first = false;
