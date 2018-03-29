@@ -24,54 +24,35 @@
  * along with this file.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <vector>
+#include <math.h>
+#include <numeric>
+#include <iostream>
+
 #include <ros/ros.h>
 #include <sensor_msgs/Imu.h>
+#include <geometry_msgs/PointStamped.h>
 #include <tf/tf.h>
 #include <tf/transform_datatypes.h>
 
 using namespace ros;
 using namespace tf;
+using namespace std;
 
-class AccelerationIntegration {
-public:
-  AccelerationIntegration(void) {
-    prev_acc.setZero();
-    prev_vel.setZero();
-    prev_time = -1.0;
-  }
+static const float G = 9.81;
+static const float TO_DEG = 180.0/M_PI;
 
-  Vector3 integrate(const Vector3 &new_acc, double new_time) {
-    Vector3 new_vel; new_vel.setZero();
-    Vector3 delta_position; delta_position.setZero();
-
-    if(prev_time > 0) {
-      double delta_time = new_time - prev_time;
-      new_vel = prev_vel + (new_acc + prev_acc) / 2.0 * delta_time;
-      delta_position = (new_vel + prev_vel) / 2.0 * delta_time;
-    }
-
-    prev_acc = new_acc;
-    prev_vel = new_vel;
-    prev_time = new_time;
-    return delta_position;
-  }
-
-private:
-  Vector3 prev_acc;
-  Vector3 prev_vel;
-  double prev_time;
-};
+void print(const string &name, const Vector3 &value) {
+  cerr << name << ": [" << value.x() << ", " << value.y() << ", " << value.z() << "]" << endl;
+}
 
 class ImuOdometry {
 public:
   ImuOdometry(NodeHandle &nh) :
     pose_publisher(nh.advertise<geometry_msgs::PoseStamped>("pose", 10)),
-    gravity_publisher(nh.advertise<geometry_msgs::PoseStamped>("pose", 10)),
-    raw_imu_subscriber(nh.subscribe<sensor_msgs::Imu>("/raw_imu", 10, &ImuOdometry::process, this)),
-    need_msgs_to_init(MSGS_TO_INIT),
-    gravity(0, 0, 0),
-    init_orientation(0, 0, 0, 1.0) {
-    position.setZero();
+    raw_imu_subscriber(nh.subscribe<sensor_msgs::Imu>("/imu", 10, &ImuOdometry::process, this)),
+    position(0.0, 0.0, 0.0),
+    first_time(0.0) {
   }
 
   void process(const sensor_msgs::Imu::ConstPtr& imuIn) {
@@ -79,39 +60,49 @@ public:
     quaternionMsgToTF(imuIn->orientation, orientation);
     Vector3 raw_acceleration;
     vector3MsgToTF(imuIn->linear_acceleration, raw_acceleration);
+    double time = imuIn->header.stamp.toSec();
 
-    geometry_msgs::PoseStamped pose_msg;
-    pose_msg.header.frame_id = imuIn->header.frame_id;
-    pose_msg.header.stamp = imuIn->header.stamp;
-    tf::quaternionTFToMsg(orientation, pose_msg.pose.orientation);
-
-    if(need_msgs_to_init != 0) {
-      // calibration - estimation of the initial orientation and gravity vector
-      static const float factor = 1.0/MSGS_TO_INIT;
-      init_orientation = orientation;
-      gravity += raw_acceleration*factor;
-      need_msgs_to_init--;
-    } else {
-      Matrix3x3 relative_orientation(init_orientation.inverse()*orientation);
-      Vector3 relative_gravity = relative_orientation.inverse() * gravity;
-      Vector3 acceleration = raw_acceleration - relative_gravity;
-      Vector3 translation = integration.integrate(acceleration, imuIn->header.stamp.toSec());
-      position += Matrix3x3(orientation) * translation;
-      pointTFToMsg(position, pose_msg.pose.position);
+    if(first_time < 0.0001) {
+      first_time = time;
     }
+    cout << time-first_time << " " <<
+        raw_acceleration.x()/G << " " << raw_acceleration.y()/G << " " << raw_acceleration.z()/G << " " <<
+        imuIn->angular_velocity.x*TO_DEG << " " << imuIn->angular_velocity.y*TO_DEG << " " << imuIn->angular_velocity.z*TO_DEG << endl;
 
-    pose_publisher.publish(pose_msg);
+    Vector3 calibrated_acceleration = Matrix3x3(orientation.inverse()) * raw_acceleration;
+
+    if(last_accelerations.size() > 100) {
+      Vector3 avg_gravity(0.0, 0.0, 0.0);
+      avg_gravity = accumulate(last_accelerations.begin(), last_accelerations.end(), avg_gravity);
+      avg_gravity /= last_accelerations.size();
+
+      Vector3 acceleration = calibrated_acceleration - avg_gravity;
+      position += acceleration * pow(time-first_time, 2.0);
+
+      /*print("raw", raw_acceleration);
+      print("calib", calibrated_acceleration);
+      print("gravity", avg_gravity);
+      print("acc", acceleration);
+      cerr << "--------------------------------------------------------------------------------" << endl;*/
+
+      geometry_msgs::PoseStamped pose_msg;
+      pose_msg.header.frame_id = imuIn->header.frame_id;
+      pose_msg.header.stamp = imuIn->header.stamp;
+      tf::quaternionTFToMsg(orientation, pose_msg.pose.orientation);
+      pointTFToMsg(position, pose_msg.pose.position);
+
+      pose_publisher.publish(pose_msg);
+      last_accelerations.erase(last_accelerations.begin());
+    }
+    last_accelerations.push_back(calibrated_acceleration);
   }
 private:
-  Publisher pose_publisher, gravity_publisher;
+  Publisher pose_publisher;
   Subscriber raw_imu_subscriber;
 
-  Vector3 gravity;
-  Quaternion init_orientation;
-  static const int MSGS_TO_INIT = 30;
-  int need_msgs_to_init;
+  vector<Vector3> last_accelerations;
+  double first_time;
 
-  AccelerationIntegration integration;
   Point position;
 };
 

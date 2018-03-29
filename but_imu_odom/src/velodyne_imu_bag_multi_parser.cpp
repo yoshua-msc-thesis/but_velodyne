@@ -88,10 +88,10 @@ public:
     KittiUtils::save_kitti_pose(Eigen::Affine3f(t_float), out_poses);
   }
 
-  void saveCloud(const VelodynePointCloud &cloud, int sensor_id) {
+  void saveCloud(const VelodynePointCloud &cloud, const int sensor_id, const ros::Time &time) {
     stringstream filename;
     filename << out_dir << "/" << KittiUtils::getKittiFrameName(cloud_counter, ".") << sensor_id << ".pcd";
-    ROS_INFO_STREAM("Saving " << filename.str());
+    ROS_INFO_STREAM("Saving " << filename.str() << " taken at " << time);
     io::savePCDFileBinary(filename.str(), cloud);
   }
 
@@ -107,8 +107,8 @@ public:
       cloud1.setImageLikeAxisFromKitti();
       cloud2.setImageLikeAxisFromKitti();
 
-      saveCloud(cloud1, 1);
-      saveCloud(cloud2, 2);
+      saveCloud(cloud1, 1, msg1->header.stamp);
+      saveCloud(cloud2, 2, msg2->header.stamp);
       cloud_counter++;
 
       findSaveTransform(cloud1.getAxisCorrection());
@@ -138,7 +138,7 @@ int main(int argc, char** argv) {
   Parser parser(frame_id_1, frame_id_2, out_dir);
 
   typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::PointCloud2, sensor_msgs::PointCloud2> MySyncPolicy;
-  message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), velodyne1_sub, velodyne2_sub);
+  message_filters::Synchronizer<MySyncPolicy> sync(MySyncPolicy(256), velodyne1_sub, velodyne2_sub);
   sync.registerCallback(boost::bind(&Parser::callback, &parser, _1, _2));
 
   spin();
