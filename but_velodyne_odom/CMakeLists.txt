@@ -8,14 +8,14 @@ find_package(catkin REQUIRED COMPONENTS
   cmake_modules
   roscpp
   nodelet
-  pcl_ros
   sensor_msgs
   nav_msgs
   velodyne_msgs
   velodyne_pointcloud
   roslint
   eigen_conversions
-  pcl_conversions
+  pcl_catkin
+  but_velodyne
   )
 
 ## System dependencies are found with CMake's conventions
@@ -29,10 +29,10 @@ find_package( OpenCV REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS})
 link_directories(${OpenCV_LIBRARY_DIRS})
 
-find_package(PCL REQUIRED)
-find_package(but_velodyne REQUIRED)
-include_directories(${PCL_INCLUDE_DIRS} ${ButVELODYNE_INCLUDE_DIRS})
-link_directories( ${PCL_LIBRARY_DIRS} ${ButVELODYNE_LIBRARY_DIRS})
+# find_package(PCL REQUIRED)
+# find_package(but_velodyne REQUIRED)
+# include_directories(${PCL_INCLUDE_DIRS} ${ButVELODYNE_INCLUDE_DIRS})
+# link_directories( ${PCL_LIBRARY_DIRS} ${ButVELODYNE_LIBRARY_DIRS})
 
 catkin_package(CATKIN_DEPENDS velodyne_msgs nav_msgs sensor_msgs)
 include_directories(include ${catkin_INCLUDE_DIRS})
@@ -40,7 +40,7 @@ include_directories(include ${catkin_INCLUDE_DIRS})
 add_library( butveloodom 
              src/but_velodyne_lib/collar_line_odom.cpp
              )
-target_link_libraries(butveloodom ${catkin_LIBRARIES} ${OGRE_LIBRARIES} ${OpenCV_LIBRARIES} ${ButVELODYNE_LIBRARIES} ${PCL_LIBRARIES})
+target_link_libraries(butveloodom ${catkin_LIBRARIES} ${OGRE_LIBRARIES} ${OpenCV_LIBRARIES} ${ButVELODYNE_LIBRARIES})
 
 
 ## Uncomment this if the package has a setup.py. This macro ensures

@@ -8,15 +8,16 @@ find_package(catkin REQUIRED COMPONENTS
   cmake_modules
   roscpp
   nodelet
-  pcl_ros
+  # pcl_ros
   sensor_msgs
   nav_msgs
   roslint
   eigen_conversions
-  pcl_conversions
   tf_conversions
   tf2_eigen
   tf
+  pcl_catkin
+  but_velodyne
 )
 
 add_definitions(-DVELODYNE_MODEL=${VELODYNE_MODEL})
@@ -25,34 +26,34 @@ add_definitions(-DVELODYNE_MODEL=${VELODYNE_MODEL})
 # find_package(Boost REQUIRED COMPONENTS system)
 find_package(PkgConfig REQUIRED)
 
-find_package( Eigen REQUIRED )
+find_package( Eigen3 REQUIRED )
 include_directories( ${EIGEN_INCLUDE_DIRS})
 
-find_package(PCL REQUIRED)
-include_directories(${PCL_INCLUDE_DIRS})
-link_directories( ${PCL_LIBRARY_DIRS})
+# find_package(PCL REQUIRED)
+# include_directories(${PCL_INCLUDE_DIRS})
+# link_directories( ${PCL_LIBRARY_DIRS})
 
 find_package( OpenCV REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS})
 link_directories(${OpenCV_LIBRARY_DIRS})
 
-find_package(but_velodyne REQUIRED)
-include_directories(${ButVELODYNE_INCLUDE_DIRS})
-link_directories(${ButVELODYNE_LIBRARY_DIRS})
+# find_package(but_velodyne REQUIRED)
+# include_directories(${ButVELODYNE_INCLUDE_DIRS})
+# link_directories(${ButVELODYNE_LIBRARY_DIRS})
 
-catkin_package(CATKIN_DEPENDS nav_msgs sensor_msgs tf2_eigen)
+catkin_package(CATKIN_DEPENDS nav_msgs sensor_msgs tf2_eigen but_velodyne)
 include_directories(include ${catkin_INCLUDE_DIRS})
 
 add_executable(imu_odom src/imu_odom_node.cpp)
-target_link_libraries(imu_odom ${catkin_LIBRARIES} ${PCL_LIBRARIES})
+target_link_libraries(imu_odom ${catkin_LIBRARIES})
 
 add_executable(velodyne_imu_bag_parser src/velodyne_imu_bag_parser.cpp)
-target_link_libraries(velodyne_imu_bag_parser ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${ButVELODYNE_LIBRARIES})
+target_link_libraries(velodyne_imu_bag_parser ${catkin_LIBRARIES} ${ButVELODYNE_LIBRARIES})
 
 add_executable(velodyne_imu_bag_multi_parser src/velodyne_imu_bag_multi_parser.cpp)
-target_link_libraries(velodyne_imu_bag_multi_parser ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${ButVELODYNE_LIBRARIES})
+target_link_libraries(velodyne_imu_bag_multi_parser ${catkin_LIBRARIES} ${ButVELODYNE_LIBRARIES})
 
 find_package(Qt5Positioning)
 
 add_executable(imu_gps_odom_node src/imu_gps_odom_node.cpp)
-target_link_libraries(imu_gps_odom_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${ButVELODYNE_LIBRARIES} Qt5::Positioning)
+target_link_libraries(imu_gps_odom_node ${catkin_LIBRARIES} ${ButVELODYNE_LIBRARIES} Qt5::Positioning)

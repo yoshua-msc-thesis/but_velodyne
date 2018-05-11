@@ -6,7 +6,7 @@ find_package(catkin
   cmake_modules
   roscpp
   nodelet
-  pcl_ros
+  pcl_catkin
   sensor_msgs
   nav_msgs
   tf
